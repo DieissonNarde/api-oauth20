@@ -1,29 +1,48 @@
-const express         =     require('express')
-  , passport          =     require('passport')
-  , cookieParser      =     require('cookie-parser')
-  , session           =     require('express-session')
-  , bodyParser        =     require('body-parser')
-  , config            =     require('./configuration/config')
-  , app               =     express();
+const express = require('express'),
+  passport = require('passport'),
+  cookieParser = require('cookie-parser'),
+  session = require('express-session'),
+  bodyParser = require('body-parser'),
+  config = require('./configuration/config'),
+  fbConfig = require('./configuration/facebookConfig'),
+  app = express();
+
+var FacebookStrategy = require('passport-facebook');
+
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: fbConfig.api_key,
+      clientSecret: fbConfig.api_secret,
+      callbackURL: fbConfig.callback_url,
+    },
+    function (accessToken, refreshToken, profile, done) {
+      return done(null, profile);
+    }
+  )
+);
 
 var GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-passport.use(new GoogleStrategy({
-    clientID: config.api_key,
-    clientSecret: config.api_secret,
-    callbackURL: config.callback_url
-  },
-  function(accessToken, refreshToken, profile, done) {
-    return done(null, profile);
-  }
-));
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: config.api_key,
+      clientSecret: config.api_secret,
+      callbackURL: config.callback_url,
+    },
+    function (accessToken, refreshToken, profile, done) {
+      return done(null, profile);
+    }
+  )
+);
 
 // Passport session setup.
-passport.serializeUser(function(user, done) {
+passport.serializeUser(function (user, done) {
   done(null, user);
 });
 
-passport.deserializeUser(function(obj, done) {
+passport.deserializeUser(function (obj, done) {
   done(null, obj);
 });
 
@@ -31,25 +50,47 @@ app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({ secret: 'keyboard cat', resave: true, saveUninitialized: true }));
+app.use(
+  session({ secret: 'keyboard cat', resave: true, saveUninitialized: true })
+);
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.static(__dirname + '/public'));
 
-app.get('/', function(req, res){
+app.get('/', function (req, res) {
   res.render('index', { user: req.user });
 });
 
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile'] }));
+app.get('/login/facebook', passport.authenticate('facebook'));
 
-app.get('/auth/google/callback', 
-  passport.authenticate('google',  { successRedirect : '/', failureRedirect: '/login' }),
-  function(req, res) {
+app.get(
+  '/oauth2/redirect/facebook',
+  passport.authenticate('facebook', {
+    failureRedirect: '/login',
+    failureMessage: true,
+  }),
+  function (req, res) {
     res.redirect('/');
   }
 );
 
-app.get('/logout', function(req, res){
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile'] })
+);
+
+app.get(
+  '/auth/google/callback',
+  passport.authenticate('google', {
+    successRedirect: '/',
+    failureRedirect: '/login',
+  }),
+  function (req, res) {
+    res.redirect('/');
+  }
+);
+
+app.get('/logout', function (req, res) {
   req.logout();
   res.redirect('/');
 });
